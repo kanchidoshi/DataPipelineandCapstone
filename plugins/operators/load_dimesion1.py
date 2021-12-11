@@ -26,8 +26,8 @@ class LoadDimensionOperator(BaseOperator):
         self.load_sql_stmt = load_sql_stmt
         self.truncate_table = truncate_table
         
-    def execute(self, context):
-        redshift=PostgresHook(postgres_conn_id=self.redshift_conn_id)
+        def execute(self, context):
+            redshift=PostgresHook(postgres_conn_id=self.redshift_conn_id)
             
         if self.truncate_table:
             self.log.info(f"Truncating dimension table: {self.table}")

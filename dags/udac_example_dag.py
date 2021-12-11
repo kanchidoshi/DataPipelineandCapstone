@@ -12,9 +12,11 @@ from helpers import SqlQueries
 default_args = {
     'owner': 'udacity',
     'start_date': datetime(2019, 1, 12),
+    'max_active_runs': 1,
     'depends_on_past':False,
     'email_on_retry':False,
     'retries':3,
+    'catchup': False,
     'retry_delay': timedelta(minutes=5)
 }
 
