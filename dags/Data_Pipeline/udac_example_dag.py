@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 import os
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.operators import (StageToRedshiftOperator, LoadFactOperator,
+from airflow.Data_Pipeline.operators import (StageToRedshiftOperator, LoadFactOperator,
                                 LoadDimensionOperator, DataQualityOperator)
 from helpers import SqlQueries
 
@@ -11,20 +11,20 @@ from helpers import SqlQueries
 
 default_args = {
     'owner': 'udacity',
-    'start_date': datetime(2019, 1, 12),
+    'start_date': datetime(2021, 12, 12),
     'max_active_runs': 1,
     'depends_on_past':False,
     'email_on_retry':False,
-    'retries':3,
-    'catchup': False,
-    'retry_delay': timedelta(minutes=5)
+    #'retries':3,
+    'catchup': False
+    #'retry_delay': timedelta(minutes=5)
 }
 
 dag = DAG('udac_example_dag',
           default_args=default_args,
           description='Load and transform data in Redshift with Airflow',
           schedule_interval='0 * * * *'
-          #schedule_interval='@daily',
+          #schedule_interval='@daily'
           
         )
 
@@ -35,10 +35,13 @@ stage_events_to_redshift = StageToRedshiftOperator(
     dag=dag,
     table="staging_events",
     redshift_conn_id="redshift",
-    aws_credentials="aws_credentials",
-    s3_bucket="udacity_dend",
+    aws_credentials_id="aws_credentials",
+    #aws_conn_id="aws_credentials",
+    s3_bucket="udacity-dend",
     s3_key="log_data",
     region="us-west-2",
+    json_path="s3://udacity-dend/log_json_path.json",
+    file_type="json",
     provide_context=True
 )
 
@@ -48,9 +51,13 @@ stage_songs_to_redshift = StageToRedshiftOperator(
     table="staging_songs",
     redshift_conn_id="redshift",
     aws_credentials_id="aws_credentials",
+    #aws_conn_id="aws_credentials",
     s3_bucket="udacity-dend",
-    s3_key="song_data",
+    #s3_key="song_data",
+    s3_key='song_data/A/A/A/',
     region="us-west-2",
+    json_path="auto",
+    file_type="json",
     provide_context=True
 )
 
@@ -101,7 +108,17 @@ load_time_dimension_table = LoadDimensionOperator(
 run_quality_checks = DataQualityOperator(
     task_id='Run_data_quality_checks',
     dag=dag,
-    tables = ['songplays', 'users', 'songs', 'artists', 'time']
+    dq_checks=[
+        { 'check_sql': 'SELECT COUNT(*) FROM public.songplays WHERE userid IS NULL', 'expected_result': 0 }, 
+        { 'check_sql': 'SELECT COUNT(DISTINCT "level") FROM public.songplays', 'expected_result': 2 },
+        { 'check_sql': 'SELECT COUNT(*) FROM public.artists WHERE name IS NULL', 'expected_result': 0 },
+        { 'check_sql': 'SELECT COUNT(*) FROM public.songs WHERE title IS NULL', 'expected_result': 0 },
+        { 'check_sql': 'SELECT COUNT(*) FROM public.users WHERE first_name IS NULL', 'expected_result': 0 },
+        { 'check_sql': 'SELECT COUNT(*) FROM public."time" WHERE weekday IS NULL', 'expected_result': 0 },
+        { 'check_sql': 'SELECT COUNT(*) FROM public.songplays sp LEFT OUTER JOIN public.users u ON u.userid = sp.userid WHERE u.userid IS  NULL','expected_result': 0 }
+    ],
+    #tables = ['songplays', 'users', 'songs', 'artists', 'time'],
+    redshift_conn_id='redshift'
 )
 
 end_operator = DummyOperator(task_id='Stop_execution',  dag=dag)
